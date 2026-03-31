@@ -541,8 +541,9 @@ private extension Settings
         case .n64: systemName = "n64"
         case .ds: systemName = "ds"
         case .genesis: systemName = "genesis"
+        case .gc: systemName = "gc"
         }
-        
+
         let orientation: String
         
         switch traits.orientation

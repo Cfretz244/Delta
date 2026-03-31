@@ -110,6 +110,7 @@ extension Feature where Options == VariableFastForwardOptions
             case .gbc: return self.gbc
             case .gba: return self.gba
             case .ds: return self.ds
+            case .gc: return nil
             }
         }
         set {
@@ -123,6 +124,7 @@ extension Feature where Options == VariableFastForwardOptions
             case .gbc: self.gbc = newValue
             case .gba: self.gba = newValue
             case .ds: self.ds = newValue
+            case .gc: break
             }
         }
     }

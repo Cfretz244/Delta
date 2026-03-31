@@ -15,6 +15,7 @@ import GBADeltaCore
 import N64DeltaCore
 import MelonDSDeltaCore
 import GPGXDeltaCore
+import GCDeltaCore
 
 extension Delta
 {
@@ -125,6 +126,11 @@ extension DeltaCoreProtocol
                                       .developer: .init(value: NSLocalizedString("eke-eke", comment: ""), url: URL(string: "https://github.com/ekeeke")),
                                       .version: .init(value: NSLocalizedString("1.7.4", comment: "")),
                                       .source: .init(value: NSLocalizedString("GitHub", comment: ""), url: URL(string: "https://github.com/ekeeke/Genesis-Plus-GX"))])
+        case GC.core:
+            return DeltaCoreMetadata([.name: .init(value: NSLocalizedString("Dolphin", comment: ""), url: URL(string: "https://dolphin-emu.org")),
+                                      .developer: .init(value: NSLocalizedString("Dolphin Team", comment: ""), url: URL(string: "https://github.com/dolphin-emu")),
+                                      .version: .init(value: NSLocalizedString("5.0", comment: "")),
+                                      .source: .init(value: NSLocalizedString("GitHub", comment: ""), url: URL(string: "https://github.com/dolphin-emu/dolphin"))])
         default: return nil
         }
     }

@@ -33,6 +33,7 @@
 
 /* Begin PBXBuildFile section */
 		1FA4ABA79AB72914FE414A61 /* libPods-Delta.a in Frameworks */ = {isa = PBXBuildFile; fileRef = DC866E433B3BA9AE18ABA1EC /* libPods-Delta.a */; };
+		3839A91EBF4282F157D88279 /* GCDeltaCore.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = B6CB2EDCF1E4F584E94A1EBC /* GCDeltaCore.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		823D998F2E566EE40025F4CD /* GBCColorPalette.swift in Sources */ = {isa = PBXBuildFile; fileRef = 823D998E2E566EE40025F4CD /* GBCColorPalette.swift */; };
 		8279ED042E53BA4F008995FA /* GBACoreSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8279ED032E53BA4F008995FA /* GBACoreSettingsView.swift */; };
 		8279ED0E2E53C76C008995FA /* NESCoreSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8279ED0D2E53C76C008995FA /* NESCoreSettingsView.swift */; };
@@ -44,6 +45,7 @@
 		82C83A732E4FCC030020711E /* CoreSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82C83A722E4FCC030020711E /* CoreSettingsView.swift */; };
 		82F450AB2E6A1CD00097CE1C /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 82F450AA2E6A1CD00097CE1C /* AppIcon.icon */; };
 		87343D7B985519A5890A61C6 /* libPods-DeltaPreviews.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 7E3E5A45AB20C8A87754453B /* libPods-DeltaPreviews.a */; };
+		8DD15E49280B7439DD1F73F1 /* GCDeltaCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B6CB2EDCF1E4F584E94A1EBC /* GCDeltaCore.framework */; };
 		AC1C991029F8B8C30020E6E4 /* ToastNotificationOptions.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC1C990F29F8B8C30020E6E4 /* ToastNotificationOptions.swift */; };
 		AC1C992729F9F1CF0020E6E4 /* GameViewController+ExperimentalToasts.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC1C992629F9F1CF0020E6E4 /* GameViewController+ExperimentalToasts.swift */; };
 		ACF7E30F29F743A3000FE071 /* PHPhotoLibrary+Screenshots.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACF7E30E29F743A3000FE071 /* PHPhotoLibrary+Screenshots.swift */; };
@@ -539,6 +541,7 @@
 				D5C7DD0B2E26CF5B0048FF5C /* GBADeltaCore.framework in Embed Frameworks */,
 				D5C7DD132E26CF6F0048FF5C /* N64DeltaCore_RSP.framework in Embed Frameworks */,
 				D5C7DD082E26CF540048FF5C /* SNESDeltaCore.framework in Embed Frameworks */,
+				3839A91EBF4282F157D88279 /* GCDeltaCore.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -573,6 +576,7 @@
 		AC1C990F29F8B8C30020E6E4 /* ToastNotificationOptions.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToastNotificationOptions.swift; sourceTree = "<group>"; };
 		AC1C992629F9F1CF0020E6E4 /* GameViewController+ExperimentalToasts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "GameViewController+ExperimentalToasts.swift"; sourceTree = "<group>"; };
 		ACF7E30E29F743A3000FE071 /* PHPhotoLibrary+Screenshots.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "PHPhotoLibrary+Screenshots.swift"; sourceTree = "<group>"; };
+		B6CB2EDCF1E4F584E94A1EBC /* GCDeltaCore.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; lastKnownFileType = wrapper.framework; path = GCDeltaCore.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		BF00BEA525B758AA00C8607D /* SystemBIOS.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemBIOS.swift; sourceTree = "<group>"; };
 		BF02D5D91DDEBB3000A5E131 /* openvgdb.sqlite */ = {isa = PBXFileReference; lastKnownFileType = file; path = openvgdb.sqlite; sourceTree = "<group>"; };
 		BF04E6FE1DB8625C000F35D3 /* ControllerSkinsViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = ControllerSkinsViewController.swift; sourceTree = "<group>"; };
@@ -889,6 +893,7 @@
 				D5E76AAD2BE199890078C0C5 /* ShowTouches in Frameworks */,
 				D5C7DD192E26CF810048FF5C /* MelonDSDeltaCore.framework in Frameworks */,
 				D5C45FEF2BE992A80009DBB0 /* AltKit in Frameworks */,
+				8DD15E49280B7439DD1F73F1 /* GCDeltaCore.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1386,6 +1391,7 @@
 				BFEC732F1AAECCBD00650035 /* Resources */,
 				BFFA71D81AAC406100EE9DD1 /* Products */,
 				FD1E8AE87FA2DB8793F7B937 /* Pods */,
+				B6CB2EDCF1E4F584E94A1EBC /* GCDeltaCore.framework */,
 			);
 			sourceTree = "<group>";
 		};
