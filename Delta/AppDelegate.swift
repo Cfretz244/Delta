@@ -155,7 +155,7 @@ private extension AppDelegate
         #if BETA
         System.allCases.forEach { Delta.register($0.deltaCore) }
         #else
-        System.allCases.filter { ![.genesis, .gc].contains($0) }.forEach { Delta.register($0.deltaCore) }
+        System.allCases.filter { ![.genesis].contains($0) }.forEach { Delta.register($0.deltaCore) }
         #endif
         
         #endif
