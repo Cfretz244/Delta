@@ -33,4 +33,4 @@
 	url = https://github.com/rileytestut/CheatBase.git
 [submodule "Cores/GCDeltaCore"]
 	path = Cores/GCDeltaCore
-	url = /Users/christopherfretz/git/GCDeltaCore
+	url = git@github.com:Cfretz244/GCDeltaCore.git
