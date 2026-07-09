@@ -17,6 +17,7 @@ import RegexBuilder
 
 import MelonDSDeltaCore
 import GBCDeltaCore
+import GCDeltaCore
 
 import Roxas
 import Harmony
@@ -748,7 +749,7 @@ private extension GameCollectionViewController
 //MARK: - Game Actions -
 private extension GameCollectionViewController
 {
-    func actions(for game: Game) -> [UIMenuElement]
+    func actions(for game: Game, at indexPath: IndexPath) -> [UIMenuElement]
     {
         let openNewWindowAction = UIAction(title: NSLocalizedString("Open in New Window", comment: ""), image: UIImage(symbolNameIfAvailable: "square.grid.2x2")) { [unowned self] action in
             self.openInNewWindow(game)
@@ -796,15 +797,28 @@ private extension GameCollectionViewController
         let savesMenu = UIMenu(title: "", options: .displayInline, children: savesActions)
         
         let settingsMenu = UIMenu(title: "", options: .displayInline, children: [settingsAction])
-        
+
+        let hostNetplayAction = UIAction(title: NSLocalizedString("Host Netplay Session", comment: ""), image: UIImage(symbolNameIfAvailable: "antenna.radiowaves.left.and.right")) { [unowned self] _ in
+            self.hostNetplaySession(for: game, at: indexPath)
+        }
+
+        let joinNetplayAction = UIAction(title: NSLocalizedString("Join Netplay Session…", comment: ""), image: UIImage(symbolNameIfAvailable: "personalhotspot")) { [unowned self] _ in
+            self.joinNetplaySession(for: game, at: indexPath)
+        }
+
+        let netplayMenu = UIMenu(title: "", options: .displayInline, children: [hostNetplayAction, joinNetplayAction])
+
         switch game.type
         {
         case GameType.unknown:
             return [renameAction, shareAction, settingsMenu, deleteAction]
-            
+
         case .ds where game.identifier == Game.melonDSBIOSIdentifier || game.identifier == Game.melonDSDSiBIOSIdentifier:
             return openActions + [renameAction, changeArtworkAction, settingsMenu, saveStatesAction]
-            
+
+        case .gc:
+            return openActions + [netplayMenu, renameAction, changeArtworkAction, shareAction, settingsMenu, savesMenu, deleteAction]
+
         default:
             return openActions + [renameAction, changeArtworkAction, shareAction, settingsMenu, savesMenu, deleteAction]
         }
@@ -854,6 +868,102 @@ private extension GameCollectionViewController
         }
     }
     
+    //MARK: Netplay
+
+    func hostNetplaySession(for game: Game, at indexPath: IndexPath)
+    {
+        let addresses = self.localIPv4Addresses()
+        let addressList = addresses.isEmpty ? NSLocalizedString("(no Wi-Fi address found)", comment: "") : addresses.joined(separator: "\n")
+
+        let message = String(format: NSLocalizedString("The other player chooses Join Netplay Session and enters this address:\n\n%@\n\nBoth players need the same game. Input delay is set by the host (1 frame).", comment: ""), addressList)
+
+        let alertController = UIAlertController(title: NSLocalizedString("Host Netplay Session", comment: ""), message: message, preferredStyle: .alert)
+        alertController.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel, handler: nil))
+        alertController.addAction(UIAlertAction(title: NSLocalizedString("Start Hosting", comment: ""), style: .default, handler: { [unowned self] _ in
+            let bridge = GCEmulatorBridge.shared
+            bridge.netplayIsHost = true
+            bridge.netplayRemoteAddress = nil
+            bridge.netplayPort = 0  // default (51441)
+            bridge.netplayDelay = 0 // default (1)
+            bridge.netplaySessionRequested = true
+
+            self.launchGame(at: indexPath, clearScreen: true)
+        }))
+
+        self.present(alertController, animated: true, completion: nil)
+    }
+
+    func joinNetplaySession(for game: Game, at indexPath: IndexPath)
+    {
+        let alertController = UIAlertController(title: NSLocalizedString("Join Netplay Session", comment: ""),
+                                                message: NSLocalizedString("Enter the address shown on the host's screen.", comment: ""),
+                                                preferredStyle: .alert)
+        alertController.addTextField { textField in
+            textField.placeholder = NSLocalizedString("192.168.1.10", comment: "")
+            textField.keyboardType = .numbersAndPunctuation
+            textField.autocorrectionType = .no
+            textField.autocapitalizationType = .none
+        }
+        alertController.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel, handler: nil))
+        alertController.addAction(UIAlertAction(title: NSLocalizedString("Connect", comment: ""), style: .default, handler: { [unowned self, weak alertController] _ in
+            let input = alertController?.textFields?.first?.text?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            guard !input.isEmpty else { return }
+
+            // Accept "address" or "address:port" (a single colon — bare IPv6 is
+            // not supported by the transport, so multiple colons pass through
+            // and fail visibly at connect).
+            var address = input
+            var port = 0
+            let components = input.components(separatedBy: ":")
+            if components.count == 2, let parsedPort = Int(components[1]), (1...65535).contains(parsedPort)
+            {
+                address = components[0]
+                port = parsedPort
+            }
+
+            let bridge = GCEmulatorBridge.shared
+            bridge.netplayIsHost = false
+            bridge.netplayRemoteAddress = address
+            bridge.netplayPort = port   // 0 → default (51441)
+            bridge.netplayDelay = 0     // ignored for clients — host's delay wins
+            bridge.netplaySessionRequested = true
+
+            self.launchGame(at: indexPath, clearScreen: true)
+        }))
+
+        self.present(alertController, animated: true, completion: nil)
+    }
+
+    /// IPv4 addresses of the device's active network interfaces (Wi-Fi and
+    /// wired), for displaying to the hosting player.
+    private func localIPv4Addresses() -> [String]
+    {
+        var addresses = [String]()
+
+        var ifaddrsPointer: UnsafeMutablePointer<ifaddrs>?
+        guard getifaddrs(&ifaddrsPointer) == 0, let firstAddress = ifaddrsPointer else { return addresses }
+        defer { freeifaddrs(ifaddrsPointer) }
+
+        for pointer in sequence(first: firstAddress, next: { $0.pointee.ifa_next })
+        {
+            let interface = pointer.pointee
+            guard let interfaceAddress = interface.ifa_addr, interfaceAddress.pointee.sa_family == UInt8(AF_INET) else { continue }
+            guard (Int32(interface.ifa_flags) & IFF_LOOPBACK) == 0 else { continue }
+
+            // en0 = Wi-Fi on iPhone; other enX cover wired/adapter setups.
+            let name = String(cString: interface.ifa_name)
+            guard name.hasPrefix("en") else { continue }
+
+            var hostname = [CChar](repeating: 0, count: Int(NI_MAXHOST))
+            if getnameinfo(interfaceAddress, socklen_t(interfaceAddress.pointee.sa_len), &hostname, socklen_t(hostname.count), nil, 0, NI_NUMERICHOST) == 0
+            {
+                addresses.append(String(cString: hostname))
+            }
+        }
+
+        return addresses
+    }
+
     func delete(_ game: Game)
     {
         let confirmationAlertController = UIAlertController(title: NSLocalizedString("Are you sure you want to delete this game?", comment: ""),
@@ -1398,7 +1508,7 @@ extension GameCollectionViewController
             Logger.main.info("Error trying to preview game: \(error.localizedDescription, privacy: .public)")
         }
         
-        let actions = self.actions(for: game)
+        let actions = self.actions(for: game, at: indexPath)
         
         let cell = self.collectionView.cellForItem(at: indexPath)
         self._popoverSourceView = cell
