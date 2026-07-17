@@ -900,7 +900,7 @@ private extension GameCollectionViewController
             bridge.netplayDelay = 0 // default (1)
             bridge.netplaySessionRequested = true
 
-            self.launchGame(at: indexPath, clearScreen: true)
+            self.launchNetplayGame(at: indexPath)
         }))
 
         self.present(alertController, animated: true, completion: nil)
@@ -941,7 +941,7 @@ private extension GameCollectionViewController
             bridge.netplayDelay = 0     // ignored for clients — host's delay wins
             bridge.netplaySessionRequested = true
 
-            self.launchGame(at: indexPath, clearScreen: true)
+            self.launchNetplayGame(at: indexPath)
         }))
 
         self.present(alertController, animated: true, completion: nil)
@@ -966,7 +966,7 @@ private extension GameCollectionViewController
             {
                 // Join order became the port assignment: first joiner is P2.
                 _ = try pairing.lockInAndConfigureHost()
-                self.launchGame(at: indexPath, clearScreen: true)
+                self.launchNetplayGame(at: indexPath)
             }
             catch
             {
@@ -1072,7 +1072,7 @@ private extension GameCollectionViewController
             // Bridge is configured (client role); the game waits at boot for
             // the host's lock-in.
             currentAlert?.dismiss(animated: true) {
-                self.launchGame(at: indexPath, clearScreen: true)
+                self.launchNetplayGame(at: indexPath)
             }
         }
         pairing.onFailed = { [weak self] error in
@@ -1090,6 +1090,16 @@ private extension GameCollectionViewController
             pairing.reset()
             self.presentLocalMatchError(error)
         }
+    }
+
+    /// Netplay boots must be cold: a resumed core (or a restored auto-save)
+    /// is already past the game's netplay handshake, so the transport pairs
+    /// but the game never enters the session — the peer then waits forever at
+    /// its first input exchange. Never resume, never load a save state.
+    private func launchNetplayGame(at indexPath: IndexPath)
+    {
+        self.activeSaveState = nil
+        self.launchGame(at: indexPath, clearScreen: true, ignoreAlreadyRunningError: true)
     }
 
     private func presentLocalMatchError(_ error: Error)
