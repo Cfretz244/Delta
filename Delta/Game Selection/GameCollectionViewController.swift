@@ -808,6 +808,19 @@ private extension GameCollectionViewController
 
         let netplayMenu = UIMenu(title: "", options: .displayInline, children: [hostNetplayAction, joinNetplayAction])
 
+        // Local (in-person) match: Bonjour/AWDL auto-discovery — no addresses,
+        // works with no shared network at all. The manual-IP actions above stay
+        // for cross-network (Mac↔iPhone) sessions.
+        let hostLocalMatchAction = UIAction(title: NSLocalizedString("Host Local Match", comment: ""), image: UIImage(symbolNameIfAvailable: "person.2.wave.2")) { [unowned self] _ in
+            self.hostLocalMatch(for: game, at: indexPath)
+        }
+
+        let joinLocalMatchAction = UIAction(title: NSLocalizedString("Join Local Match…", comment: ""), image: UIImage(symbolNameIfAvailable: "dot.radiowaves.left.and.right")) { [unowned self] _ in
+            self.joinLocalMatch(for: game, at: indexPath)
+        }
+
+        let localMatchMenu = UIMenu(title: "", options: .displayInline, children: [hostLocalMatchAction, joinLocalMatchAction])
+
         switch game.type
         {
         case GameType.unknown:
@@ -817,7 +830,7 @@ private extension GameCollectionViewController
             return openActions + [renameAction, changeArtworkAction, settingsMenu, saveStatesAction]
 
         case .gc:
-            return openActions + [netplayMenu, renameAction, changeArtworkAction, shareAction, settingsMenu, savesMenu, deleteAction]
+            return openActions + [localMatchMenu, netplayMenu, renameAction, changeArtworkAction, shareAction, settingsMenu, savesMenu, deleteAction]
 
         default:
             return openActions + [renameAction, changeArtworkAction, shareAction, settingsMenu, savesMenu, deleteAction]
@@ -931,6 +944,158 @@ private extension GameCollectionViewController
             self.launchGame(at: indexPath, clearScreen: true)
         }))
 
+        self.present(alertController, animated: true, completion: nil)
+    }
+
+    //MARK: Local (in-person) match — Bonjour/AWDL pairing, no addresses
+
+    func hostLocalMatch(for game: Game, at indexPath: IndexPath)
+    {
+        let pairing = MeleeNetplayPairing.shared
+        pairing.reset()
+
+        let hostName = UIDevice.current.name
+        let waitingMessage = { (count: Int) in
+            String(format: NSLocalizedString("Visible to nearby players as “%@”.\n\nPlayers joined: %d", comment: ""), hostName, count)
+        }
+
+        let alertController = UIAlertController(title: NSLocalizedString("Host Local Match", comment: ""), message: waitingMessage(0), preferredStyle: .alert)
+        let startAction = UIAlertAction(title: NSLocalizedString("Start Match", comment: ""), style: .default) { [unowned self] _ in
+            pairing.onFailed = nil
+            do
+            {
+                // Join order became the port assignment: first joiner is P2.
+                _ = try pairing.lockInAndConfigureHost()
+                self.launchGame(at: indexPath, clearScreen: true)
+            }
+            catch
+            {
+                pairing.reset()
+                self.presentLocalMatchError(error)
+            }
+        }
+        startAction.isEnabled = false
+        alertController.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel) { _ in
+            pairing.reset()
+        })
+        alertController.addAction(startAction)
+
+        pairing.onPeerCountChanged = { [weak alertController, weak startAction] count in
+            alertController?.message = waitingMessage(count)
+            startAction?.isEnabled = count >= 1
+        }
+        pairing.onFailed = { [weak self, weak alertController] error in
+            pairing.reset()
+            alertController?.dismiss(animated: true) { self?.presentLocalMatchError(error) }
+        }
+
+        do
+        {
+            try pairing.startHosting(name: hostName)
+            self.present(alertController, animated: true, completion: nil)
+        }
+        catch
+        {
+            pairing.reset()
+            self.presentLocalMatchError(error)
+        }
+    }
+
+    func joinLocalMatch(for game: Game, at indexPath: IndexPath)
+    {
+        let pairing = MeleeNetplayPairing.shared
+        pairing.reset()
+
+        // The picker is rebuilt when the discovered-host set changes (alert
+        // actions cannot be added after presentation). Discovery on AWDL/LAN
+        // settles within a second or two, and the list is tiny.
+        var shownHostNames: [String]?
+        weak var currentAlert: UIAlertController?
+
+        func presentPicker(hosts: [MeleeNetplayPairing.DiscoveredHost])
+        {
+            let searching = hosts.isEmpty
+            let message = searching
+                ? NSLocalizedString("Make sure the host has chosen Host Local Match on their device.", comment: "")
+                : NSLocalizedString("Choose a host to join.", comment: "")
+            let alertController = UIAlertController(title: searching ? NSLocalizedString("Searching for Nearby Hosts…", comment: "") : NSLocalizedString("Nearby Hosts", comment: ""), message: message, preferredStyle: .alert)
+            for host in hosts
+            {
+                let action = UIAlertAction(title: host.name, style: .default) { [unowned self] _ in
+                    do
+                    {
+                        try pairing.join(host)
+                        pairing.onDiscoveredHostsChanged = nil
+                        let connecting = UIAlertController(title: String(format: NSLocalizedString("Joining “%@”…", comment: ""), host.name), message: NSLocalizedString("The match starts when the host does.", comment: ""), preferredStyle: .alert)
+                        connecting.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel) { _ in
+                            pairing.reset()
+                        })
+                        currentAlert = connecting
+                        self.present(connecting, animated: true, completion: nil)
+                    }
+                    catch
+                    {
+                        pairing.reset()
+                        self.presentLocalMatchError(error)
+                    }
+                }
+                action.isEnabled = host.isCompatible
+                alertController.addAction(action)
+            }
+            alertController.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel) { _ in
+                pairing.reset()
+            })
+
+            shownHostNames = hosts.map { $0.name }
+            let present = { [weak self] in
+                currentAlert = alertController
+                self?.present(alertController, animated: true, completion: nil)
+            }
+            if let visible = currentAlert
+            {
+                visible.dismiss(animated: false, completion: present)
+            }
+            else
+            {
+                present()
+            }
+        }
+
+        pairing.onDiscoveredHostsChanged = { hosts in
+            let names = hosts.map { $0.name }
+            guard names != shownHostNames else { return }
+            // Only rebuild while the picker (or the initial searching alert)
+            // is what's on screen — never clobber the "Joining…" state.
+            presentPicker(hosts: hosts)
+        }
+        pairing.onJoined = { [unowned self] in
+            // Bridge is configured (client role); the game waits at boot for
+            // the host's lock-in.
+            currentAlert?.dismiss(animated: true) {
+                self.launchGame(at: indexPath, clearScreen: true)
+            }
+        }
+        pairing.onFailed = { [weak self] error in
+            pairing.reset()
+            currentAlert?.dismiss(animated: true) { self?.presentLocalMatchError(error) }
+        }
+
+        do
+        {
+            try pairing.startBrowsing()
+            presentPicker(hosts: [])
+        }
+        catch
+        {
+            pairing.reset()
+            self.presentLocalMatchError(error)
+        }
+    }
+
+    private func presentLocalMatchError(_ error: Error)
+    {
+        let alertController = UIAlertController(title: NSLocalizedString("Local Match Failed", comment: ""), message: error.localizedDescription, preferredStyle: .alert)
+        alertController.addAction(.ok)
         self.present(alertController, animated: true, completion: nil)
     }
 

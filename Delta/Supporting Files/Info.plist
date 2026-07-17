@@ -220,9 +220,10 @@
 	<key>NSBonjourServices</key>
 	<array>
 		<string>_altserver._tcp</string>
+		<string>_gcdelta-melee._tcp</string>
 	</array>
 	<key>NSLocalNetworkUsageDescription</key>
-	<string>Delta uses the local network to communicate with AltServer and enable JIT.</string>
+	<string>Delta uses the local network to communicate with AltServer, enable JIT, and pair with nearby players for local netplay.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Delta uses your microphone to emulate the Nintendo DS microphone.</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
