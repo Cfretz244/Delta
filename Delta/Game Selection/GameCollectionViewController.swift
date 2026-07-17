@@ -898,6 +898,14 @@ private extension GameCollectionViewController
             bridge.netplayRemoteAddress = nil
             bridge.netplayPort = 0  // default (51441)
             bridge.netplayDelay = 0 // default (1)
+            // The bridge is a singleton: a prior Local Match attempt leaves
+            // external-transport/rollback settings behind, and a TCP boot with
+            // Transport=1 ignores the address and waits forever for
+            // app-provided links. Fully specify the session.
+            bridge.netplayUseExternalTransport = false
+            bridge.netplayPlayers = 0
+            bridge.netplayWindow = 0
+            bridge.netplayRegionTablePath = nil
             bridge.netplaySessionRequested = true
 
             self.launchNetplayGame(at: indexPath)
@@ -939,6 +947,12 @@ private extension GameCollectionViewController
             bridge.netplayRemoteAddress = address
             bridge.netplayPort = port   // 0 → default (51441)
             bridge.netplayDelay = 0     // ignored for clients — host's delay wins
+            // See hostNetplaySession: the singleton bridge must not inherit a
+            // prior Local Match attempt's external-transport settings.
+            bridge.netplayUseExternalTransport = false
+            bridge.netplayPlayers = 0
+            bridge.netplayWindow = 0
+            bridge.netplayRegionTablePath = nil
             bridge.netplaySessionRequested = true
 
             self.launchNetplayGame(at: indexPath)
