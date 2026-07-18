@@ -9,6 +9,7 @@
 import UIKit
 
 import DeltaCore
+import GCDeltaCore
 import Harmony
 import AltKit
 
@@ -157,10 +158,31 @@ private extension AppDelegate
         #else
         System.allCases.filter { ![.genesis].contains($0) }.forEach { Delta.register($0.deltaCore) }
         #endif
-        
+
         #endif
+
+        // Dolphin reports fatal conditions (e.g. the AOT image-identity guard
+        // refusing a mismatched disc image) via panic alerts that would
+        // otherwise only reach the system log, leaving a blank screen with no
+        // explanation. Surface them on whatever is frontmost.
+        GCEmulatorBridge.shared.panicAlertHandler = { (title, message) in
+            let windowScenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            let windowScene = windowScenes.first { $0.activationState == .foregroundActive } ?? windowScenes.first
+            guard let window = windowScene?.windows.first(where: { $0.isKeyWindow }) ?? windowScene?.windows.first,
+                  var presenter = window.rootViewController
+            else { return }
+
+            while let presented = presenter.presentedViewController, !presented.isBeingDismissed
+            {
+                presenter = presented
+            }
+
+            let alertController = UIAlertController(title: title, message: message, preferredStyle: .alert)
+            alertController.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .default))
+            presenter.present(alertController, animated: true)
+        }
     }
-    
+
     func configureAppearance()
     {
         self.window?.tintColor = UIColor.deltaPurple
