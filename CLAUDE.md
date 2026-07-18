@@ -19,12 +19,12 @@ delta-stack/                          ← Cfretz244/Delta (iOS app, workspace ro
     CLAUDE.md                         ← stack layout, bootstrap, bridge architecture
     scripts/stack.sh                  ← THE driver: all build knowledge lives here
     games.conf                        ← committed game registry (ISO sha256 pins, ENABLED list)
-    dolphin/                          ← Cfretz244/dolphin @ ios-aot — emulator + AOT toolchain
+    dolphin/                          ← Cfretz244/dolphin @ master — emulator + AOT toolchain
       CLAUDE.md                       ← AOT pipeline internals, diagnostic env vars
       docs/restoration-2026-06.md     ← post-mortem; motivates most of the hard rules below
 ```
 
-**Submodule discipline:** `Cores/GCDeltaCore` stays on `main`, `dolphin` on `ios-aot` — never work
+**Submodule discipline:** `Cores/GCDeltaCore` stays on `main`, `dolphin` on `master` — never work
 detached. Dolphin changes are pushed to `Cfretz244/dolphin` and the gitlink bumped in GCDeltaCore
 in the same change; same pattern one level up for GCDeltaCore → Delta.
 
