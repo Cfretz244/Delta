@@ -821,6 +821,26 @@ private extension GameCollectionViewController
 
         let localMatchMenu = UIMenu(title: "", options: .displayInline, children: [hostLocalMatchAction, joinLocalMatchAction])
 
+        // Online (remote) match: matchmaking server + TCP relay. Host/Join are
+        // only offered once a server is configured (Settings → Online Match);
+        // the settings entry is always available so the server can be entered.
+        var onlineMatchChildren: [UIAction] = []
+        if OnlineMatchConfig.isConfigured
+        {
+            let hostOnlineMatchAction = UIAction(title: NSLocalizedString("Host Online Match", comment: ""), image: UIImage(symbolNameIfAvailable: "globe")) { [unowned self] _ in
+                self.hostOnlineMatch(for: game, at: indexPath)
+            }
+            let joinOnlineMatchAction = UIAction(title: NSLocalizedString("Join Online Match…", comment: ""), image: UIImage(symbolNameIfAvailable: "network")) { [unowned self] _ in
+                self.joinOnlineMatch(for: game, at: indexPath)
+            }
+            onlineMatchChildren = [hostOnlineMatchAction, joinOnlineMatchAction]
+        }
+        let onlineMatchSettingsAction = UIAction(title: NSLocalizedString("Online Match Settings…", comment: ""), image: UIImage(symbolNameIfAvailable: "gearshape")) { [unowned self] _ in
+            self.presentOnlineMatchSettings()
+        }
+        onlineMatchChildren.append(onlineMatchSettingsAction)
+        let onlineMatchMenu = UIMenu(title: "", options: .displayInline, children: onlineMatchChildren)
+
         switch game.type
         {
         case GameType.unknown:
@@ -830,7 +850,7 @@ private extension GameCollectionViewController
             return openActions + [renameAction, changeArtworkAction, settingsMenu, saveStatesAction]
 
         case .gc:
-            return openActions + [localMatchMenu, netplayMenu, renameAction, changeArtworkAction, shareAction, settingsMenu, savesMenu, deleteAction]
+            return openActions + [localMatchMenu, onlineMatchMenu, netplayMenu, renameAction, changeArtworkAction, shareAction, settingsMenu, savesMenu, deleteAction]
 
         default:
             return openActions + [renameAction, changeArtworkAction, shareAction, settingsMenu, savesMenu, deleteAction]
@@ -1104,6 +1124,158 @@ private extension GameCollectionViewController
             pairing.reset()
             self.presentLocalMatchError(error)
         }
+    }
+
+    //MARK: Online (remote) match — matchmaking server + TCP relay
+
+    func hostOnlineMatch(for game: Game, at indexPath: IndexPath)
+    {
+        guard let config = OnlineMatchConfig.makeServerConfig() else
+        {
+            self.presentLocalMatchError(MeleeNetplayRelaySession.RelayError.notConfigured)
+            return
+        }
+
+        let session = MeleeNetplayRelaySession.shared
+        session.reset()
+
+        let hostName = UIDevice.current.name
+        let waitingMessage = { (count: Int) in
+            String(format: NSLocalizedString("Hosting online as “%@”.\n\nPlayers joined: %d", comment: ""), hostName, count)
+        }
+
+        let alertController = UIAlertController(title: NSLocalizedString("Host Online Match", comment: ""), message: waitingMessage(0), preferredStyle: .alert)
+        let startAction = UIAlertAction(title: NSLocalizedString("Start Match", comment: ""), style: .default) { [unowned self] _ in
+            session.onFailed = nil
+            session.onRosterChanged = nil
+            session.startMatch { result in
+                switch result
+                {
+                case .success:
+                    // Slot-ordered legs already attached; boot the host cold.
+                    self.launchNetplayGame(at: indexPath)
+                case .failure(let error):
+                    session.reset()
+                    self.presentLocalMatchError(error)
+                }
+            }
+        }
+        startAction.isEnabled = false
+        alertController.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel) { _ in
+            session.reset()
+        })
+        alertController.addAction(startAction)
+
+        session.onRosterChanged = { [weak alertController, weak startAction] count in
+            alertController?.message = waitingMessage(count)
+            startAction?.isEnabled = count >= 1
+        }
+        session.onFailed = { [weak self, weak alertController] error in
+            session.reset()
+            alertController?.dismiss(animated: true) { self?.presentLocalMatchError(error) }
+        }
+
+        session.startHosting(name: hostName, gameID: game.identifier, maxPlayers: 4, config: config)
+        self.present(alertController, animated: true, completion: nil)
+    }
+
+    func joinOnlineMatch(for game: Game, at indexPath: IndexPath)
+    {
+        guard let config = OnlineMatchConfig.makeServerConfig() else
+        {
+            self.presentLocalMatchError(MeleeNetplayRelaySession.RelayError.notConfigured)
+            return
+        }
+
+        let session = MeleeNetplayRelaySession.shared
+        session.reset()
+
+        // The picker is rebuilt when the lobby list changes (alert actions
+        // cannot be added after presentation), mirroring Join Local Match.
+        var shownLobbyIDs: [String]?
+        weak var currentAlert: UIAlertController?
+
+        func presentPicker(lobbies: [MeleeNetplayRelaySession.LobbyListing])
+        {
+            let searching = lobbies.isEmpty
+            let message = searching
+                ? NSLocalizedString("Make sure the host has chosen Host Online Match.", comment: "")
+                : NSLocalizedString("Choose a match to join.", comment: "")
+            let alertController = UIAlertController(title: searching ? NSLocalizedString("Searching for Online Matches…", comment: "") : NSLocalizedString("Online Matches", comment: ""), message: message, preferredStyle: .alert)
+            for lobby in lobbies
+            {
+                let title = String(format: NSLocalizedString("%@ (%d/%d)", comment: ""), lobby.name, lobby.playersJoined, lobby.maxPlayers)
+                let action = UIAlertAction(title: title, style: .default) { [unowned self] _ in
+                    session.onLobbiesChanged = nil
+                    session.join(lobby, displayName: UIDevice.current.name)
+                    let connecting = UIAlertController(title: String(format: NSLocalizedString("Joining “%@”…", comment: ""), lobby.name), message: NSLocalizedString("The match starts when the host does.", comment: ""), preferredStyle: .alert)
+                    connecting.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel) { _ in
+                        session.reset()
+                    })
+                    currentAlert = connecting
+                    self.present(connecting, animated: true, completion: nil)
+                }
+                // Grey rows whose proto version mismatches or that are full.
+                action.isEnabled = lobby.isCompatible && !lobby.isFull
+                alertController.addAction(action)
+            }
+            alertController.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel) { _ in
+                session.reset()
+            })
+
+            shownLobbyIDs = lobbies.map { $0.lobbyID }
+            let present = { [weak self] in
+                currentAlert = alertController
+                self?.present(alertController, animated: true, completion: nil)
+            }
+            if let visible = currentAlert
+            {
+                visible.dismiss(animated: false, completion: present)
+            }
+            else
+            {
+                present()
+            }
+        }
+
+        session.onLobbiesChanged = { lobbies in
+            let ids = lobbies.map { $0.lobbyID }
+            guard ids != shownLobbyIDs else { return }
+            presentPicker(lobbies: lobbies)
+        }
+        session.onJoined = { [unowned self] in
+            // Bridge configured (client role); the game waits at boot for the
+            // host to start the match.
+            currentAlert?.dismiss(animated: true) {
+                self.launchNetplayGame(at: indexPath)
+            }
+        }
+        session.onFailed = { [weak self] error in
+            session.reset()
+            currentAlert?.dismiss(animated: true) { self?.presentLocalMatchError(error) }
+        }
+
+        session.startBrowsing(config: config)
+        presentPicker(lobbies: [])
+    }
+
+    private func presentOnlineMatchSettings()
+    {
+        guard #available(iOS 15, *) else
+        {
+            self.presentLocalMatchError(MeleeNetplayRelaySession.RelayError.notConfigured)
+            return
+        }
+
+        let settingsViewController = OnlineMatchSettingsView.makeViewController()
+        let navigationController = UINavigationController(rootViewController: settingsViewController)
+        settingsViewController.navigationItem.leftBarButtonItem = UIBarButtonItem(barButtonSystemItem: .done, target: self, action: #selector(self.dismissOnlineMatchSettings))
+        self.present(navigationController, animated: true, completion: nil)
+    }
+
+    @objc private func dismissOnlineMatchSettings()
+    {
+        self.presentedViewController?.dismiss(animated: true, completion: nil)
     }
 
     /// Netplay boots must be cold: a resumed core (or a restored auto-save)

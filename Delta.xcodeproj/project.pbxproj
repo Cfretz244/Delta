@@ -210,6 +210,7 @@
 		D54F710229E89DCB009C069A /* SettingsUserInfoKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = D54F710129E89DCB009C069A /* SettingsUserInfoKey.swift */; };
 		D54F710429E89DFC009C069A /* NotificationName+Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = D54F710329E89DFC009C069A /* NotificationName+Settings.swift */; };
 		D552DE3A2D39C5A500E737BE /* WFCServersView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D552DE392D39C5A500E737BE /* WFCServersView.swift */; };
+		0A711A0000000000000000F2 /* OnlineMatchSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A711A0000000000000000F1 /* OnlineMatchSettingsView.swift */; };
 		D552DE3D2D39DB2A00E737BE /* WFCServer.swift in Sources */ = {isa = PBXBuildFile; fileRef = D552DE3C2D39DB2700E737BE /* WFCServer.swift */; };
 		D55917DA2B51D097007B7DC0 /* LocalDeviceController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D55917D92B51D097007B7DC0 /* LocalDeviceController.swift */; };
 		D55C468F29E761C000EA6DE9 /* AnyFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = D55C468E29E761C000EA6DE9 /* AnyFeature.swift */; };
@@ -761,6 +762,7 @@
 		D54F710129E89DCB009C069A /* SettingsUserInfoKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsUserInfoKey.swift; sourceTree = "<group>"; };
 		D54F710329E89DFC009C069A /* NotificationName+Settings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NotificationName+Settings.swift"; sourceTree = "<group>"; };
 		D552DE392D39C5A500E737BE /* WFCServersView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WFCServersView.swift; sourceTree = "<group>"; };
+		0A711A0000000000000000F1 /* OnlineMatchSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnlineMatchSettingsView.swift; sourceTree = "<group>"; };
 		D552DE3C2D39DB2700E737BE /* WFCServer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WFCServer.swift; sourceTree = "<group>"; };
 		D554C3822A58D89700E93359 /* Delta 7.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = "Delta 7.xcdatamodel"; sourceTree = "<group>"; };
 		D55917D92B51D097007B7DC0 /* LocalDeviceController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalDeviceController.swift; sourceTree = "<group>"; };
@@ -1280,6 +1282,7 @@
 				D5AA0F0C2CE3F3820015D134 /* Patreon */,
 				D50CA1552D419E4B00F54920 /* Games */,
 				D5A2CABC2D6962FA00FBA4E4 /* WFC */,
+				0A711A0000000000000000F3 /* OnlineMatch */,
 				D5D797E4298D944C00738869 /* Contributors */,
 			);
 			path = Settings;
@@ -1681,6 +1684,14 @@
 				D552DE3C2D39DB2700E737BE /* WFCServer.swift */,
 			);
 			path = WFC;
+			sourceTree = "<group>";
+		};
+		0A711A0000000000000000F3 /* OnlineMatch */ = {
+			isa = PBXGroup;
+			children = (
+				0A711A0000000000000000F1 /* OnlineMatchSettingsView.swift */,
+			);
+			path = OnlineMatch;
 			sourceTree = "<group>";
 		};
 		D5A9BFFF29DDECF500A8D610 /* Experimental Features */ = {
@@ -2321,6 +2332,7 @@
 				BF13A7581D5D2FD9000BB055 /* EmulatorCore+Delta.swift in Sources */,
 				BF48F74E219A16DA00BC2FC1 /* SyncingServicesViewController.swift in Sources */,
 				D552DE3A2D39C5A500E737BE /* WFCServersView.swift in Sources */,
+				0A711A0000000000000000F2 /* OnlineMatchSettingsView.swift in Sources */,
 				D5A9C01D29DE058C00A8D610 /* VariableFastForward.swift in Sources */,
 				C6F24AD92D64B550002F939F /* PauseViewController+Lu.swift in Sources */,
 				BFE593CA21F3F8B7003412A6 /* GameSave.swift in Sources */,

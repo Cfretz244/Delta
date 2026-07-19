@@ -38,6 +38,13 @@ extension Settings.Name
     static let customWFCServer: Settings.Name = "customWFCServer"
     static let opensGamesInNewWindow: Settings.Name = "opensGamesInNewWindow"
     static let preferredGBColorPalette: Settings.Name = "preferredGBColorPalette"
+
+    // Online (relay) match — matchmaking server + relay endpoint + Basic auth.
+    static let matchmakingServerURL: Settings.Name = "matchmakingServerURL"
+    static let matchmakingRelayHost: Settings.Name = "matchmakingRelayHost"
+    static let matchmakingRelayPort: Settings.Name = "matchmakingRelayPort"
+    static let matchmakingUsername: Settings.Name = "matchmakingUsername"
+    static let matchmakingPassword: Settings.Name = "matchmakingPassword"
 }
 
 extension Settings
@@ -318,6 +325,52 @@ extension Settings
         set {
             UserDefaults.standard.preferredGBColorPalette = newValue?.rawValue
             NotificationCenter.default.post(name: Settings.didChangeNotification, object: nil, userInfo: [NotificationUserInfoKey.name: Name.preferredGBColorPalette])
+        }
+    }
+
+    /// Online (relay) match — matchmaking server REST base URL. When nil/empty
+    /// the Host/Join Online Match actions stay hidden from the GC menu.
+    static var matchmakingServerURL: String? {
+        get { UserDefaults.standard.matchmakingServerURL }
+        set {
+            UserDefaults.standard.matchmakingServerURL = newValue
+            NotificationCenter.default.post(name: Settings.didChangeNotification, object: nil, userInfo: [NotificationUserInfoKey.name: Name.matchmakingServerURL])
+        }
+    }
+
+    /// Raw-TCP relay host. Defaults to the REST hostname when left blank; kept
+    /// independently configurable because the relay port cannot ride the
+    /// Cloudflare tunnel and may live on a different host.
+    static var matchmakingRelayHost: String? {
+        get { UserDefaults.standard.matchmakingRelayHost }
+        set {
+            UserDefaults.standard.matchmakingRelayHost = newValue
+            NotificationCenter.default.post(name: Settings.didChangeNotification, object: nil, userInfo: [NotificationUserInfoKey.name: Name.matchmakingRelayHost])
+        }
+    }
+
+    /// Raw-TCP relay port.
+    static var matchmakingRelayPort: Int {
+        get { UserDefaults.standard.matchmakingRelayPort }
+        set {
+            UserDefaults.standard.matchmakingRelayPort = newValue
+            NotificationCenter.default.post(name: Settings.didChangeNotification, object: nil, userInfo: [NotificationUserInfoKey.name: Name.matchmakingRelayPort])
+        }
+    }
+
+    static var matchmakingUsername: String? {
+        get { UserDefaults.standard.matchmakingUsername }
+        set {
+            UserDefaults.standard.matchmakingUsername = newValue
+            NotificationCenter.default.post(name: Settings.didChangeNotification, object: nil, userInfo: [NotificationUserInfoKey.name: Name.matchmakingUsername])
+        }
+    }
+
+    static var matchmakingPassword: String? {
+        get { UserDefaults.standard.matchmakingPassword }
+        set {
+            UserDefaults.standard.matchmakingPassword = newValue
+            NotificationCenter.default.post(name: Settings.didChangeNotification, object: nil, userInfo: [NotificationUserInfoKey.name: Name.matchmakingPassword])
         }
     }
     
@@ -617,6 +670,12 @@ private extension UserDefaults
     @NSManaged var customWFCServer: String?
     
     @NSManaged var opensGamesInNewWindow: Bool
-    
+
     @NSManaged var preferredGBColorPalette: String?
+
+    @NSManaged var matchmakingServerURL: String?
+    @NSManaged var matchmakingRelayHost: String?
+    @NSManaged var matchmakingRelayPort: Int
+    @NSManaged var matchmakingUsername: String?
+    @NSManaged var matchmakingPassword: String?
 }
