@@ -1721,14 +1721,21 @@ extension GameViewController: GameViewControllerDelegate
         else
         {
             var options: [EmulatorCore.Option: Any] = [.metal: ExperimentalFeatures.shared.metal.isEnabled]
-            
+
             if #available(iOS 18, macOS 15, *), ProcessInfo.processInfo.isiOSAppOnMac
             {
                 // macOS 15 Sequoia no longer supports rendering bitmap CIImages with OpenGL ES,
                 // so always render with Metal.
                 options[.metal] = true
             }
-            
+
+            if let game = game as? Game, game.type == .gc
+            {
+                // Dolphin renders via Metal at 2x internal resolution; the OpenGL ES
+                // CIContext path re-uploads the full frame through GL every frame.
+                options[.metal] = true
+            }
+
             return options
         }
     }
