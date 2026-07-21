@@ -85,6 +85,10 @@ Four phases, each producing the next phase's input (toolchain lives in
    An instrumented JIT records executed blocks/edges. Coverage = what you played.
 2. **CFG extraction:** `dolphin-tool cfg --iso game.iso --trace trace.dpht --output cfg.db` —
    recursive-descent disassembly seeded by the traces + DOL entry point → SQLite DB.
+   `--trace` is repeatable: multiple traces union (broad base trace + targeted scene traces).
+   Frame drops in a specific scene = missing coverage; fix via the incremental trace loop in
+   `Cores/GCDeltaCore/CLAUDE.md` ("Incremental Trace Updates") — play the scene, union the new
+   trace, translate + aot-ios, rebuild. No gates needed for coverage-only updates.
 3. **PPC→C translation:** `stack.sh translate <ID>` (wraps `dolphin-tool translate`) emits one C
    function per block plus an O(1) flat dispatch table (`<ID>_fast_table[(pc - BASE) >> 2]`)
    into `aot-src/<ID>/`.
