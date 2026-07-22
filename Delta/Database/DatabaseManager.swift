@@ -383,7 +383,17 @@ extension DatabaseManager
                     continue
                 }
                 
-                guard let gameType = GameType(fileExtension: url.pathExtension), let system = System(gameType: gameType) else {
+                guard let extensionGameType = GameType(fileExtension: url.pathExtension) else {
+                    errors.insert(.unsupported(url))
+                    continue
+                }
+
+                // GameCube and Wii disc images share file extensions, so the
+                // extension-derived type is provisional until the disc header
+                // has been inspected.
+                let gameType = extensionGameType.refinedDiscGameType(forFileAt: url)
+
+                guard let system = System(gameType: gameType) else {
                     errors.insert(.unsupported(url))
                     continue
                 }

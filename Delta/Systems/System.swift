@@ -27,14 +27,15 @@ enum System: CaseIterable
     case gba
     case ds
     case gc
-    
+    case wii
+
     static var registeredSystems: [System] {
         let systems = System.allCases.filter { Delta.registeredCores.keys.contains($0.gameType) }
         return systems
     }
-    
+
     static var allCores: [DeltaCoreProtocol] {
-        return [NES.core, SNES.core, N64.core, GBC.core, GBA.core, MelonDS.core, GPGX.core, GC.core]
+        return [NES.core, SNES.core, N64.core, GBC.core, GBA.core, MelonDS.core, GPGX.core, GC.core, Wii.core]
     }
 }
 
@@ -51,9 +52,10 @@ extension System
         case .ds: return NSLocalizedString("Nintendo DS", comment: "")
         case .genesis: return NSLocalizedString("Sega Genesis", comment: "")
         case .gc: return NSLocalizedString("GameCube", comment: "")
+        case .wii: return NSLocalizedString("Wii", comment: "")
         }
     }
-    
+
     var localizedShortName: String {
         switch self
         {
@@ -65,6 +67,7 @@ extension System
         case .ds: return NSLocalizedString("DS", comment: "")
         case .genesis: return NSLocalizedString("Genesis (Beta)", comment: "")
         case .gc: return NSLocalizedString("GC", comment: "")
+        case .wii: return NSLocalizedString("Wii", comment: "")
         }
     }
     
@@ -79,9 +82,10 @@ extension System
         case .ds: return NSLocalizedString("Nintendo DS", comment: "")
         case .genesis: return NSLocalizedString("Sega Genesis", comment: "")
         case .gc: return NSLocalizedString("GameCube", comment: "")
+        case .wii: return NSLocalizedString("Wii", comment: "")
         }
     }
-    
+
     var year: Int {
         switch self
         {
@@ -93,6 +97,7 @@ extension System
         case .gba: return 2001
         case .gc: return 2001
         case .ds: return 2004
+        case .wii: return 2006
         }
     }
 }
@@ -110,6 +115,7 @@ extension System
         case .ds: return Settings.preferredCore(for: .ds) ?? MelonDS.core
         case .genesis: return GPGX.core
         case .gc: return GC.core
+        case .wii: return Wii.core
         }
     }
     
@@ -124,6 +130,7 @@ extension System
         case .ds: return .ds
         case .genesis: return .genesis
         case .gc: return .gc
+        case .wii: return .wii
         }
     }
     
@@ -139,6 +146,7 @@ extension System
         case GameType.ds: self = .ds
         case GameType.genesis: self = .genesis
         case GameType.gc: self = .gc
+        case GameType.wii: self = .wii
         default: return nil
         }
     }
@@ -157,8 +165,40 @@ extension DeltaCore.GameType
         case "gba": self = .gba
         case "ds", "nds": self = .ds
         case "gen", "bin", "md", "smd": self = .genesis
-        case "iso", "gcm", "gcz", "rvz", "ciso", "wbfs": self = .gc
+        // GameCube and Wii disc images share extensions; anything ambiguous
+        // starts as .gc and import refines it via refinedDiscGameType(forFileAt:).
+        case "iso", "gcm", "gcz", "rvz", "ciso": self = .gc
+        case "wbfs": self = .wii
         default: return nil
         }
+    }
+
+    // Disambiguates GameCube vs Wii disc images by content. The disc header
+    // carries a platform magic word (Wii 0x5D1C9EA3 at 0x18, GC 0xC2339F3D at
+    // 0x1C); RVZ/WIA containers embed a copy of that header at file offset
+    // 0x58 (WIAHeader1 is 0x48 bytes, disc_header sits 0x10 into WIAHeader2).
+    // Unreadable or unrecognized files keep the extension-derived type —
+    // Dolphin's boot-time platform detection is authoritative anyway.
+    func refinedDiscGameType(forFileAt url: URL) -> DeltaCore.GameType
+    {
+        guard self == .gc else { return self }
+
+        let headerOffset: UInt64
+        switch url.pathExtension.lowercased()
+        {
+        case "iso", "gcm": headerOffset = 0
+        case "rvz": headerOffset = 0x58
+        default: return self // gcz/ciso: compressed/blocked containers, GC in practice
+        }
+
+        guard let fileHandle = try? FileHandle(forReadingFrom: url) else { return self }
+        defer { try? fileHandle.close() }
+
+        guard let data = try? { try fileHandle.seek(toOffset: headerOffset); return try fileHandle.read(upToCount: 0x20) }(),
+              data.count == 0x20
+        else { return self }
+
+        let wiiMagic = data.subdata(in: 0x18 ..< 0x1C).reduce(UInt32(0)) { ($0 << 8) | UInt32($1) }
+        return (wiiMagic == 0x5D1C9EA3) ? .wii : self
     }
 }
