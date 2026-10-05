@@ -100,8 +100,11 @@ At runtime, each game's dispatch table self-registers with `AotRegistry` via con
 `AOTCore::Init()` (CPU core 6) selects the table matching the loaded game ID. NULL table entries
 fall back to single-stepping the interpreter, so partial coverage degrades gracefully — and a
 game with no AOT lib at all falls back entirely. FP/paired-single ops delegate to interpreter
-wrappers in `AotRuntime.cpp` (FP "fast paths" were removed in the June 2026 restoration as
-unsound). Config flags use the `Dolphin.` prefix (e.g. `-C Dolphin.Core.CPUCore=6`), not `Main.`.
+wrappers in `AotRuntime.cpp`, except the single-precision add/sub/mul/fmadds families,
+lfs/stfs converts and float-GQR psq_l/psq_st, which use bit-exact `static inline *_fast` paths
+in `aot_runtime.h` that fall back to those wrappers on NaN/inf/tie/non-RAM cases (proven by the
+`AotFpFastPathTest` gtest + diff gates; the older unsound fast paths removed in June 2026 are
+not coming back). Config flags use the `Dolphin.` prefix (e.g. `-C Dolphin.Core.CPUCore=6`), not `Main.`.
 
 Correctness golden rule: runtime helpers must exactly replicate
 `Source/Core/Core/PowerPC/Interpreter/` behavior including side effects — implement from the
