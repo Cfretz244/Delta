@@ -16,6 +16,7 @@ import N64DeltaCore
 import MelonDSDeltaCore
 import GPGXDeltaCore
 import GCDeltaCore
+import XemuDeltaCore
 
 enum System: CaseIterable
 {
@@ -27,6 +28,7 @@ enum System: CaseIterable
     case gba
     case ds
     case gc
+    case xbox
     
     static var registeredSystems: [System] {
         let systems = System.allCases.filter { Delta.registeredCores.keys.contains($0.gameType) }
@@ -34,7 +36,7 @@ enum System: CaseIterable
     }
     
     static var allCores: [DeltaCoreProtocol] {
-        return [NES.core, SNES.core, N64.core, GBC.core, GBA.core, MelonDS.core, GPGX.core, GC.core]
+        return [NES.core, SNES.core, N64.core, GBC.core, GBA.core, MelonDS.core, GPGX.core, GC.core, Xbox.core]
     }
 }
 
@@ -51,6 +53,7 @@ extension System
         case .ds: return NSLocalizedString("Nintendo DS", comment: "")
         case .genesis: return NSLocalizedString("Sega Genesis", comment: "")
         case .gc: return NSLocalizedString("GameCube", comment: "")
+        case .xbox: return NSLocalizedString("Xbox", comment: "")
         }
     }
     
@@ -65,6 +68,7 @@ extension System
         case .ds: return NSLocalizedString("DS", comment: "")
         case .genesis: return NSLocalizedString("Genesis (Beta)", comment: "")
         case .gc: return NSLocalizedString("GC", comment: "")
+        case .xbox: return NSLocalizedString("Xbox", comment: "")
         }
     }
     
@@ -79,6 +83,7 @@ extension System
         case .ds: return NSLocalizedString("Nintendo DS", comment: "")
         case .genesis: return NSLocalizedString("Sega Genesis", comment: "")
         case .gc: return NSLocalizedString("GameCube", comment: "")
+        case .xbox: return NSLocalizedString("Xbox", comment: "")
         }
     }
     
@@ -92,6 +97,7 @@ extension System
         case .gbc: return 1998
         case .gba: return 2001
         case .gc: return 2001
+        case .xbox: return 2001
         case .ds: return 2004
         }
     }
@@ -110,6 +116,7 @@ extension System
         case .ds: return Settings.preferredCore(for: .ds) ?? MelonDS.core
         case .genesis: return GPGX.core
         case .gc: return GC.core
+        case .xbox: return Xbox.core
         }
     }
     
@@ -124,6 +131,7 @@ extension System
         case .ds: return .ds
         case .genesis: return .genesis
         case .gc: return .gc
+        case .xbox: return .xbox
         }
     }
     
@@ -139,6 +147,7 @@ extension System
         case GameType.ds: self = .ds
         case GameType.genesis: self = .genesis
         case GameType.gc: self = .gc
+        case GameType.xbox: self = .xbox
         default: return nil
         }
     }
@@ -158,6 +167,7 @@ extension DeltaCore.GameType
         case "ds", "nds": self = .ds
         case "gen", "bin", "md", "smd": self = .genesis
         case "iso", "gcm", "gcz", "rvz", "ciso", "wbfs": self = .gc
+        case "xiso": self = .xbox   // Xbox discs: "iso" is GameCube's; rename the XISO to .xiso
         default: return nil
         }
     }

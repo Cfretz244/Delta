@@ -16,6 +16,7 @@ import N64DeltaCore
 import MelonDSDeltaCore
 import GPGXDeltaCore
 import GCDeltaCore
+import XemuDeltaCore
 
 extension Delta
 {
@@ -131,6 +132,11 @@ extension DeltaCoreProtocol
                                       .developer: .init(value: NSLocalizedString("Dolphin Team", comment: ""), url: URL(string: "https://github.com/dolphin-emu")),
                                       .version: .init(value: NSLocalizedString("5.0", comment: "")),
                                       .source: .init(value: NSLocalizedString("GitHub", comment: ""), url: URL(string: "https://github.com/dolphin-emu/dolphin"))])
+        case Xbox.core:
+            return DeltaCoreMetadata([.name: .init(value: NSLocalizedString("xemu", comment: ""), url: URL(string: "https://xemu.app")),
+                                      .developer: .init(value: NSLocalizedString("xemu Project", comment: ""), url: URL(string: "https://github.com/xemu-project")),
+                                      .version: .init(value: NSLocalizedString("0.8 (AOT)", comment: "")),
+                                      .source: .init(value: NSLocalizedString("GitHub", comment: ""), url: URL(string: "https://github.com/Cfretz244/XemuDeltaCore"))])
         default: return nil
         }
     }

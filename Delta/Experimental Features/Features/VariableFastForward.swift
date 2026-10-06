@@ -111,6 +111,7 @@ extension Feature where Options == VariableFastForwardOptions
             case .gba: return self.gba
             case .ds: return self.ds
             case .gc: return nil
+            case .xbox: return nil
             }
         }
         set {
@@ -125,6 +126,7 @@ extension Feature where Options == VariableFastForwardOptions
             case .gba: self.gba = newValue
             case .ds: self.ds = newValue
             case .gc: break
+            case .xbox: break
             }
         }
     }

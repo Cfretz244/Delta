@@ -34,3 +34,6 @@
 [submodule "Cores/GCDeltaCore"]
 	path = Cores/GCDeltaCore
 	url = git@github.com:Cfretz244/GCDeltaCore.git
+[submodule "Cores/XemuDeltaCore"]
+	path = Cores/XemuDeltaCore
+	url = git@github.com:Cfretz244/XemuDeltaCore.git
