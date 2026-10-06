@@ -10,6 +10,7 @@ import UIKit
 
 import DeltaCore
 import GCDeltaCore
+import XemuDeltaCore
 import Harmony
 import AltKit
 
@@ -181,6 +182,14 @@ private extension AppDelegate
             alertController.addAction(UIAlertAction(title: NSLocalizedString("OK", comment: ""), style: .default))
             presenter.present(alertController, animated: true)
         }
+
+        // xemu (Xbox) cannot start without firmware in Cores/xemu/firmware;
+        // surface that the same way, and create the folder so it is visible
+        // in the Files app from the first launch.
+        XboxEmulatorBridge.shared.startErrorHandler = { message in
+            GCEmulatorBridge.shared.panicAlertHandler?("Xbox", message)
+        }
+        try? FileManager.default.createDirectory(at: XboxEmulatorBridge.shared.firmwareDirectoryURL, withIntermediateDirectories: true)
     }
 
     func configureAppearance()
