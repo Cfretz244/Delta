@@ -10,6 +10,7 @@ import UIKit
 import Photos
 
 import DeltaCore
+import XemuDeltaCore
 import GBADeltaCore
 import N64DeltaCore
 import MelonDSDeltaCore
@@ -2108,6 +2109,17 @@ private extension GameViewController
         self.stuckPausedTicks = 0
         self.lifecycleWatchdog = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
             guard let self, self.view.window != nil else { timer.invalidate(); return }
+            
+            // Device builds 6-8: Delta's state said .running while the Xbox core
+            // sat paused (someone called the bridge's pause() outside
+            // EmulatorCore.pause()). Delta's state is the truth; re-sync the core.
+            if let emulatorCore = self.emulatorCore, emulatorCore.deltaCore == Xbox.core,
+               emulatorCore.state == .running, XboxEmulatorBridge.shared.isGuestPaused
+            {
+                self.logLifecycle("core paused while Delta state is running; resuming the core")
+                emulatorCore.deltaCore.emulatorBridge.resume()
+                return
+            }
             
             guard let emulatorCore = self.emulatorCore, emulatorCore.state == .paused,
                   self.pauseViewController == nil, self.presentedViewController == nil,
