@@ -196,6 +196,11 @@ class GameViewController: DeltaCore.GameViewController
     private var achievementsTracker: AchievementsTracker?
     private var isPreparingAchievements = false
     
+    // Xbox core diagnostics: the core's stderr is a log file on device, so
+    // every pause/resume decision is written there with the scene state.
+    private var lifecycleWatchdog: Timer?
+    private var stuckPausedTicks = 0
+    
     override var shouldAutorotate: Bool {
         return !self.isGyroActive
     }
@@ -464,6 +469,7 @@ extension GameViewController
         }
         
         self.startGameActivity()
+        self.startLifecycleWatchdog()
         
         if let scene = UIApplication.shared.externalDisplayScene, Settings.supportsExternalDisplays
         {
@@ -703,6 +709,8 @@ extension GameViewController
         guard context == &kvoContext else { return super.observeValue(forKeyPath: keyPath, of: object, change: change, context: context) }
         
         guard let rawValue = change?[.oldKey] as? Int, let previousState = EmulatorCore.State(rawValue: rawValue) else { return }
+        
+        self.logLifecycle("state \(previousState.rawValue) -> \(self.emulatorCore?.state.rawValue ?? -1)")
         
         if let saveState = _deepLinkResumingSaveState, let emulatorCore = self.emulatorCore, emulatorCore.state == .running
         {
@@ -1679,15 +1687,21 @@ extension GameViewController: GameViewControllerDelegate
     func gameViewControllerShouldResumeEmulation(_ gameViewController: DeltaCore.GameViewController) -> Bool
     {
         guard gameViewController == self else { return false }
-        guard !self.isContinuingHandoff else { return false }
-        guard !self.isPreparingAchievements else { return false }
+        guard !self.isContinuingHandoff else { self.logLifecycle("resume refused: continuing handoff"); return false }
+        guard !self.isPreparingAchievements else { self.logLifecycle("resume refused: preparing achievements"); return false }
         
         var result = false
+        var reason = ""
         
         rst_dispatch_sync_on_main_thread {
             result = (self.presentedViewController == nil || self.presentedViewController?.isDisappearing == true) && !self.isSelectingSustainedButtons && self.view.window != nil
+            if !result
+            {
+                reason = "presented=\(String(describing: self.presentedViewController)) sustained=\(self.isSelectingSustainedButtons) window=\(self.view.window != nil)"
+            }
         }
         
+        if !result { self.logLifecycle("resume refused: \(reason)") }
         return result
     }
     
@@ -2067,6 +2081,46 @@ private extension GameViewController
             
             DispatchQueue.global(qos: .userInitiated).async {
                 // Call from non-main thread to avoid potential deadlock.
+                self.resumeEmulation()
+            }
+        }
+    }
+}
+
+//MARK: - Lifecycle diagnostics -
+private extension GameViewController
+{
+    func logLifecycle(_ message: String)
+    {
+        let scene = self.view.window?.windowScene
+        let line = "Delta lifecycle: \(message) [scene=\(scene?.activationState.rawValue ?? -9) focus=\(scene?.hasKeyboardFocus ?? false) appState=\(UIApplication.shared.applicationState.rawValue)]\n"
+        FileHandle.standardError.write(line.data(using: .utf8)!)
+    }
+    
+    /// Device builds of the Xbox core sat paused forever: Delta paused the
+    /// core right after start (scene focus / resign-active) and the matching
+    /// resume never came (or was refused). While the game view is on screen
+    /// in a foreground-active scene with nothing presented and no pause
+    /// menu, a paused core is a bug, not a user choice: resume it.
+    func startLifecycleWatchdog()
+    {
+        self.lifecycleWatchdog?.invalidate()
+        self.stuckPausedTicks = 0
+        self.lifecycleWatchdog = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] timer in
+            guard let self, self.view.window != nil else { timer.invalidate(); return }
+            
+            guard let emulatorCore = self.emulatorCore, emulatorCore.state == .paused,
+                  self.pauseViewController == nil, self.presentedViewController == nil,
+                  !self.isSelectingSustainedButtons, !self.isContinuingHandoff, !self.isPreparingAchievements,
+                  let scene = self.view.window?.windowScene, scene.activationState == .foregroundActive
+            else { self.stuckPausedTicks = 0; return }
+            
+            self.stuckPausedTicks += 1
+            guard self.stuckPausedTicks >= 2 else { return }
+            
+            self.logLifecycle("stuck paused for \(self.stuckPausedTicks) s, resuming")
+            DispatchQueue.global(qos: .userInitiated).async {
+                // Off the main thread: resumeEmulation() syncs onto main for the delegate check.
                 self.resumeEmulation()
             }
         }
