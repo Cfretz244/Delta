@@ -1592,7 +1592,7 @@ private extension GameCollectionViewController
     func exportXboxFiles(hdd: Bool)
     {
         let coreDirectory = Xbox.core.directoryURL
-        let relativePaths = hdd ? ["firmware/xbox_hdd.qcow2"] : ["xemu-core.log", "aot-misses.log", "aot-tbdump.txt"]
+        let relativePaths = hdd ? ["firmware/xbox_hdd.qcow2"] : ["xemu-core.log", "xemu-core.prev.log", "aot-misses.log", "aot-tbdump.txt"]
         
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd-HHmm"
@@ -1603,7 +1603,7 @@ private extension GameCollectionViewController
         let zipURL = temporaryDirectory.appendingPathComponent(zipName, isDirectory: false)
         
         let message = hdd ? NSLocalizedString("Compressing the Xbox HDD image. This can take a minute. Quit the game first for a consistent image.", comment: "")
-                          : NSLocalizedString("Compressing xemu-core.log, aot-misses.log and aot-tbdump.txt.", comment: "")
+                          : NSLocalizedString("Compressing xemu-core.log (this and the previous session), aot-misses.log and aot-tbdump.txt.", comment: "")
         let progressAlert = UIAlertController(title: NSLocalizedString("Preparing Export…", comment: ""), message: message, preferredStyle: .alert)
         self.present(progressAlert, animated: true, completion: nil)
         
