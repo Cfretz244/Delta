@@ -18,6 +18,8 @@ import RegexBuilder
 import MelonDSDeltaCore
 import GBCDeltaCore
 import GCDeltaCore
+import XemuDeltaCore
+import ZIPFoundation
 
 import Roxas
 import Harmony
@@ -852,6 +854,19 @@ private extension GameCollectionViewController
         case .gc:
             return openActions + [localMatchMenu, onlineMatchMenu, netplayMenu, renameAction, changeArtworkAction, shareAction, settingsMenu, savesMenu, deleteAction]
 
+        case .xbox:
+            // Operator diagnostics for the xemu core: the core directory's logs
+            // (xemu-core.log, AOT miss log, TB dump) and the HDD image (which
+            // holds the save states) go out through the share sheet as a zip.
+            let exportDiagnosticsAction = UIAction(title: NSLocalizedString("Export Xbox Diagnostics…", comment: ""), image: UIImage(symbolNameIfAvailable: "waveform.path.ecg")) { [unowned self] _ in
+                self.exportXboxFiles(hdd: false)
+            }
+            let exportHDDAction = UIAction(title: NSLocalizedString("Export Xbox HDD Image…", comment: ""), image: UIImage(symbolNameIfAvailable: "internaldrive")) { [unowned self] _ in
+                self.exportXboxFiles(hdd: true)
+            }
+            let xboxMenu = UIMenu(title: "", options: .displayInline, children: [exportDiagnosticsAction, exportHDDAction])
+            return openActions + [renameAction, changeArtworkAction, shareAction, settingsMenu, savesMenu, xboxMenu, deleteAction]
+
         default:
             return openActions + [renameAction, changeArtworkAction, shareAction, settingsMenu, savesMenu, deleteAction]
         }
@@ -1568,6 +1583,73 @@ private extension GameCollectionViewController
         }
         
         self.present(activityViewController, animated: true, completion: nil)
+    }
+    
+    /// Zips the xemu core directory's diagnostics (or the HDD image, which
+    /// carries the save states) into a temporary file and presents the share
+    /// sheet. Files are read as they are: a game paused in the background may
+    /// still be appending to the logs, which only costs a cut last record.
+    func exportXboxFiles(hdd: Bool)
+    {
+        let coreDirectory = Xbox.core.directoryURL
+        let relativePaths = hdd ? ["firmware/xbox_hdd.qcow2"] : ["xemu-core.log", "aot-misses.log", "aot-tbdump.txt"]
+        
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd-HHmm"
+        let stamp = formatter.string(from: Date())
+        let zipName = (hdd ? "xbox-hdd-" : "xbox-diagnostics-") + stamp + ".zip"
+        
+        let temporaryDirectory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let zipURL = temporaryDirectory.appendingPathComponent(zipName, isDirectory: false)
+        
+        let message = hdd ? NSLocalizedString("Compressing the Xbox HDD image. This can take a minute. Quit the game first for a consistent image.", comment: "")
+                          : NSLocalizedString("Compressing xemu-core.log, aot-misses.log and aot-tbdump.txt.", comment: "")
+        let progressAlert = UIAlertController(title: NSLocalizedString("Preparing Export…", comment: ""), message: message, preferredStyle: .alert)
+        self.present(progressAlert, animated: true, completion: nil)
+        
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result: Result<[String], Error> = Result {
+                try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true, attributes: nil)
+                let archive = try Archive(url: zipURL, accessMode: .create)
+                
+                var added = [String]()
+                for relativePath in relativePaths
+                {
+                    let fileURL = coreDirectory.appendingPathComponent(relativePath, isDirectory: false)
+                    guard FileManager.default.fileExists(atPath: fileURL.path) else { continue }
+                    
+                    try archive.addEntry(with: fileURL.lastPathComponent, fileURL: fileURL, compressionMethod: .deflate)
+                    added.append(fileURL.lastPathComponent)
+                }
+                
+                guard !added.isEmpty else {
+                    throw NSError(domain: "com.rileytestut.Delta", code: 1, userInfo: [NSLocalizedDescriptionKey: String(format: NSLocalizedString("No files found in %@.", comment: ""), coreDirectory.path)])
+                }
+                return added
+            }
+            
+            DispatchQueue.main.async {
+                progressAlert.dismiss(animated: true) {
+                    switch result
+                    {
+                    case .failure(let error):
+                        try? FileManager.default.removeItem(at: temporaryDirectory)
+                        let alertController = UIAlertController(title: NSLocalizedString("Could Not Export", comment: ""), error: error)
+                        self.present(alertController, animated: true, completion: nil)
+                        
+                    case .success:
+                        let activityViewController = UIActivityViewController(activityItems: [zipURL], applicationActivities: nil)
+                        activityViewController.popoverPresentationController?.sourceView = self._popoverSourceView?.superview
+                        activityViewController.popoverPresentationController?.sourceRect = self._popoverSourceView?.frame ?? .zero
+                        activityViewController.completionWithItemsHandler = { (activityType, finished, returnedItems, error) in
+                            guard finished || activityType == nil else { return }
+                            try? FileManager.default.removeItem(at: temporaryDirectory)
+                        }
+                        self.present(activityViewController, animated: true, completion: nil)
+                    }
+                }
+            }
+        }
     }
     
     func importSaveFile(for game: Game)
