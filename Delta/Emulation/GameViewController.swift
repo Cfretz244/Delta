@@ -69,6 +69,36 @@ private extension GameViewController
         }
     }
     
+    /// A saved custom mapping that never bound the pad's Menu/Home button (or
+    /// lost that binding when another button was re-assigned in the editor)
+    /// leaves the pause menu unreachable from that controller. For inputs the
+    /// saved mapping does not map at all, fall back to the controller's default
+    /// mapping when that default is `menu`.
+    struct MenuFallbackInputMapping: GameControllerInputMappingProtocol
+    {
+        let gameController: GameController
+        let mapping: GameControllerInputMappingProtocol
+        
+        var gameControllerInputType: GameControllerInputType {
+            return self.mapping.gameControllerInputType
+        }
+        
+        func input(forControllerInput controllerInput: Input) -> Input?
+        {
+            if let mappedInput = self.mapping.input(forControllerInput: controllerInput)
+            {
+                return mappedInput
+            }
+            
+            if let defaultInput = self.gameController.defaultInputMapping?.input(forControllerInput: controllerInput), defaultInput == StandardGameControllerInput.menu
+            {
+                return defaultInput
+            }
+            
+            return nil
+        }
+    }
+    
     struct SustainInputsMapping: GameControllerInputMappingProtocol
     {
         let gameController: GameController
@@ -852,7 +882,7 @@ private extension GameViewController
                     
                     if let mapping = GameControllerInputMapping.inputMapping(for: gameController, gameType: game.type, in: DatabaseManager.shared.viewContext)
                     {
-                        inputMapping = mapping
+                        inputMapping = MenuFallbackInputMapping(gameController: gameController, mapping: mapping)
                     }
                     else
                     {
