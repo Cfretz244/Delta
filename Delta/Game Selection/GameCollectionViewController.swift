@@ -18,6 +18,7 @@ import RegexBuilder
 import MelonDSDeltaCore
 import GBCDeltaCore
 import GCDeltaCore
+import ZIPFoundation
 
 import Roxas
 import Harmony
@@ -841,6 +842,17 @@ private extension GameCollectionViewController
         onlineMatchChildren.append(onlineMatchSettingsAction)
         let onlineMatchMenu = UIMenu(title: "", options: .displayInline, children: onlineMatchChildren)
 
+        // Dolphin (GC + Wii) device telemetry: the core's log (incl. the 5-s
+        // heartbeat), config and build.txt, or this game's save states, zipped
+        // to the share sheet for the operator to post (tel1, build #17).
+        let exportDolphinDiagnosticsAction = UIAction(title: NSLocalizedString("Export Dolphin Diagnostics…", comment: ""), image: UIImage(symbolNameIfAvailable: "waveform.path.ecg")) { [unowned self] _ in
+            self.exportDolphinDiagnostics()
+        }
+        let exportSaveStatesAction = UIAction(title: NSLocalizedString("Export Save States…", comment: ""), image: UIImage(symbolNameIfAvailable: "square.and.arrow.up.on.square")) { [unowned self] _ in
+            self.exportSaveStates(for: game)
+        }
+        let dolphinMenu = UIMenu(title: "", options: .displayInline, children: [exportDolphinDiagnosticsAction, exportSaveStatesAction])
+
         switch game.type
         {
         case GameType.unknown:
@@ -850,7 +862,11 @@ private extension GameCollectionViewController
             return openActions + [renameAction, changeArtworkAction, settingsMenu, saveStatesAction]
 
         case .gc:
-            return openActions + [localMatchMenu, onlineMatchMenu, netplayMenu, renameAction, changeArtworkAction, shareAction, settingsMenu, savesMenu, deleteAction]
+            return openActions + [localMatchMenu, onlineMatchMenu, netplayMenu, renameAction, changeArtworkAction, shareAction, settingsMenu, savesMenu, dolphinMenu, deleteAction]
+
+        case .wii:
+            // Same Dolphin core and user directory as .gc (Metroid Prime Trilogy is a Wii title).
+            return openActions + [renameAction, changeArtworkAction, shareAction, settingsMenu, savesMenu, dolphinMenu, deleteAction]
 
         default:
             return openActions + [renameAction, changeArtworkAction, shareAction, settingsMenu, savesMenu, deleteAction]
@@ -1570,6 +1586,144 @@ private extension GameCollectionViewController
         self.present(activityViewController, animated: true, completion: nil)
     }
     
+    /// "Export Dolphin Diagnostics…": the Dolphin user directory's log (this and
+    /// the previous app launch), the two configs and build.txt. Files are read as
+    /// they are: a game paused in the background may still be appending to the
+    /// log, which only costs a cut last line.
+    func exportDolphinDiagnostics()
+    {
+        let directory = GCEmulatorBridge.dolphinUserDirectoryURL
+        let relativePaths = ["Logs/dolphin.log", "Logs/dolphin.prev.log", "Config/Dolphin.ini", "Config/GFX.ini", "build.txt"]
+        let entries = relativePaths.map { (directory.appendingPathComponent($0, isDirectory: false), ($0 as NSString).lastPathComponent) }
+
+        self.exportZip(named: "dolphin-diagnostics", entries: entries,
+                       message: NSLocalizedString("Compressing dolphin.log (this and the previous launch), Dolphin.ini, GFX.ini and build.txt.", comment: ""),
+                       emptyMessage: String(format: NSLocalizedString("No files found in %@.", comment: ""), directory.path))
+    }
+
+    /// "Export Save States…": this game's save state files under readable names
+    /// (<yyyyMMdd-HHmm>-<type>-<name or id>.sav), so they can be told apart and
+    /// loaded into a desktop Dolphin of the same commit. Raw filenames if the
+    /// records can't be read.
+    func exportSaveStates(for game: Game)
+    {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMdd-HHmm"
+
+        var entries = [(URL, String)]()
+        var usedNames = Set<String>()
+        func uniqueName(_ base: String) -> String
+        {
+            var name = base + ".sav"
+            var counter = 2
+            while usedNames.contains(name)
+            {
+                name = base + "-\(counter).sav"
+                counter += 1
+            }
+            usedNames.insert(name)
+            return name
+        }
+
+        let saveStates = game.saveStates.sorted { $0.creationDate < $1.creationDate }
+        if !saveStates.isEmpty
+        {
+            for saveState in saveStates
+            {
+                let type: String
+                switch saveState.type
+                {
+                case .auto: type = "auto"
+                case .quick: type = "quick"
+                case .general: type = "general"
+                case .locked: type = "locked"
+                @unknown default: type = "state"
+                }
+                let label = (saveState.name?.isEmpty == false ? saveState.name! : String(saveState.identifier.prefix(8)))
+                let sanitized = label.components(separatedBy: CharacterSet.urlFilenameAllowed.inverted).joined()
+                let base = formatter.string(from: saveState.creationDate) + "-" + type + "-" + (sanitized.isEmpty ? String(saveState.identifier.prefix(8)) : sanitized)
+                entries.append((saveState.fileURL, uniqueName(base)))
+            }
+        }
+        else
+        {
+            // No records (or they failed to load): ship whatever state files exist, as named on disk.
+            let directory = DatabaseManager.saveStatesDirectoryURL(for: game)
+            let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+            for fileURL in files where fileURL.pathExtension.lowercased() != "png"
+            {
+                entries.append((fileURL, uniqueName(fileURL.lastPathComponent)))
+            }
+        }
+
+        let gameName = game.name.components(separatedBy: CharacterSet.urlFilenameAllowed.inverted).joined()
+        self.exportZip(named: "savestates-" + (gameName.isEmpty ? "game" : gameName), entries: entries,
+                       message: String(format: NSLocalizedString("Compressing %d save state(s). This can take a moment.", comment: ""), entries.count),
+                       emptyMessage: NSLocalizedString("This game has no save states.", comment: ""))
+    }
+
+    /// Zips (deflate) the given files into a temporary <name>-<yyyyMMdd-HHmm>.zip
+    /// off the main thread and presents the share sheet; the temporary
+    /// directory is removed once the sheet finishes. Missing files are skipped.
+    func exportZip(named name: String, entries: [(URL, String)], message: String, emptyMessage: String)
+    {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMdd-HHmm"
+        let zipName = name + "-" + formatter.string(from: Date()) + ".zip"
+
+        let temporaryDirectory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+        let zipURL = temporaryDirectory.appendingPathComponent(zipName, isDirectory: false)
+
+        let progressAlert = UIAlertController(title: NSLocalizedString("Preparing Export…", comment: ""), message: message, preferredStyle: .alert)
+        self.present(progressAlert, animated: true, completion: nil)
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            let result: Result<[String], Error> = Result {
+                try FileManager.default.createDirectory(at: temporaryDirectory, withIntermediateDirectories: true, attributes: nil)
+                let archive = try Archive(url: zipURL, accessMode: .create)
+
+                var added = [String]()
+                for (fileURL, entryName) in entries
+                {
+                    guard FileManager.default.fileExists(atPath: fileURL.path) else { continue }
+
+                    // The entry is named by `with:`, the data comes from fileURL.
+                    try archive.addEntry(with: entryName, fileURL: fileURL, compressionMethod: .deflate)
+                    added.append(entryName)
+                }
+
+                guard !added.isEmpty else {
+                    throw NSError(domain: "com.rileytestut.Delta", code: 1, userInfo: [NSLocalizedDescriptionKey: emptyMessage])
+                }
+                return added
+            }
+
+            DispatchQueue.main.async {
+                progressAlert.dismiss(animated: true) {
+                    switch result
+                    {
+                    case .failure(let error):
+                        try? FileManager.default.removeItem(at: temporaryDirectory)
+                        let alertController = UIAlertController(title: NSLocalizedString("Could Not Export", comment: ""), error: error)
+                        self.present(alertController, animated: true, completion: nil)
+
+                    case .success:
+                        let activityViewController = UIActivityViewController(activityItems: [zipURL], applicationActivities: nil)
+                        activityViewController.popoverPresentationController?.sourceView = self._popoverSourceView?.superview
+                        activityViewController.popoverPresentationController?.sourceRect = self._popoverSourceView?.frame ?? .zero
+                        activityViewController.completionWithItemsHandler = { (activityType, finished, returnedItems, error) in
+                            guard finished || activityType == nil else { return }
+                            try? FileManager.default.removeItem(at: temporaryDirectory)
+                        }
+                        self.present(activityViewController, animated: true, completion: nil)
+                    }
+                }
+            }
+        }
+    }
+
     func importSaveFile(for game: Game)
     {
         self._importingSaveFileGame = game
