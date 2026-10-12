@@ -1587,17 +1587,17 @@ private extension GameCollectionViewController
     }
     
     /// "Export Dolphin Diagnostics…": the Dolphin user directory's log (this and
-    /// the previous app launch), the two configs and build.txt. Files are read as
-    /// they are: a game paused in the background may still be appending to the
-    /// log, which only costs a cut last line.
+    /// the previous app launch), the bridge watchdog's hang.txt (if any), the two
+    /// configs and build.txt. Files are read as they are: a game paused in the
+    /// background may still be appending to the log, which only costs a cut last line.
     func exportDolphinDiagnostics()
     {
         let directory = GCEmulatorBridge.dolphinUserDirectoryURL
-        let relativePaths = ["Logs/dolphin.log", "Logs/dolphin.prev.log", "Config/Dolphin.ini", "Config/GFX.ini", "build.txt"]
+        let relativePaths = ["Logs/dolphin.log", "Logs/dolphin.prev.log", "Logs/hang.txt", "Config/Dolphin.ini", "Config/GFX.ini", "build.txt"]
         let entries = relativePaths.map { (directory.appendingPathComponent($0, isDirectory: false), ($0 as NSString).lastPathComponent) }
 
         self.exportZip(named: "dolphin-diagnostics", entries: entries,
-                       message: NSLocalizedString("Compressing dolphin.log (this and the previous launch), Dolphin.ini, GFX.ini and build.txt.", comment: ""),
+                       message: NSLocalizedString("Compressing dolphin.log (this and the previous launch), hang.txt, Dolphin.ini, GFX.ini and build.txt.", comment: ""),
                        emptyMessage: String(format: NSLocalizedString("No files found in %@.", comment: ""), directory.path))
     }
 
