@@ -1616,7 +1616,8 @@ private extension GameCollectionViewController
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd-HHmm"
         let stamp = formatter.string(from: Date())
-        let zipName = (hdd ? "xbox-hdd-" : "xbox-diagnostics-") + stamp + ".zip"
+        // build tag (b<N>-<helper sha>) so an export says which build made it
+        let zipName = (hdd ? "xbox-hdd-" : "xbox-diagnostics-") + XboxEmulatorBridge.buildTag + "-" + stamp + ".zip"
         
         let temporaryDirectory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
         let zipURL = temporaryDirectory.appendingPathComponent(zipName, isDirectory: false)
