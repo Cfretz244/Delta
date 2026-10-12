@@ -1591,6 +1591,25 @@ private extension GameCollectionViewController
     /// still be appending to the logs, which only costs a cut last record.
     func exportXboxFiles(hdd: Bool)
     {
+        // The HDD image is only consistent when nothing is writing it, so ask
+        // first (and offer a way out) instead of warning mid-compression.
+        if hdd && Xbox.core.emulatorBridge.gameURL != nil
+        {
+            let alertController = UIAlertController(title: NSLocalizedString("Export Xbox HDD Image?", comment: ""),
+                                                    message: NSLocalizedString("A game is running. Quit it first for a consistent image; exporting now may produce a save state that cannot be loaded.", comment: ""),
+                                                    preferredStyle: .alert)
+            alertController.addAction(UIAlertAction(title: NSLocalizedString("Cancel", comment: ""), style: .cancel, handler: nil))
+            alertController.addAction(UIAlertAction(title: NSLocalizedString("Export Anyway", comment: ""), style: .destructive) { [unowned self] _ in
+                self.startXboxExport(hdd: true)
+            })
+            self.present(alertController, animated: true, completion: nil)
+            return
+        }
+        self.startXboxExport(hdd: hdd)
+    }
+    
+    private func startXboxExport(hdd: Bool)
+    {
         let coreDirectory = Xbox.core.directoryURL
         let relativePaths = hdd ? ["firmware/xbox_hdd.qcow2"] : ["xemu-core.log", "xemu-core.prev.log", "aot-misses.log", "aot-tbdump.txt"]
         
