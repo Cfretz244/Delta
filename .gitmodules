@@ -6,7 +6,8 @@
 	url = git@github.com:rileytestut/SNESDeltaCore.git
 [submodule "External/Roxas"]
 	path = External/Roxas
-	url = git@github.com:rileytestut/Roxas.git
+	url = git@github.com:Cfretz244/Roxas.git
+	branch = delta-stack
 [submodule "Cores/GBADeltaCore"]
 	path = Cores/GBADeltaCore
 	url = git@github.com:rileytestut/GBADeltaCore.git
